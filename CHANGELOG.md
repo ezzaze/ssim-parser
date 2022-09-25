@@ -1,4 +1,4 @@
 # Changelog
 
-All notable changes to `:package_name` will be documented in this file.
+All notable changes to `ssim-parser` will be documented in this file.
 
