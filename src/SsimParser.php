@@ -4,8 +4,8 @@ namespace Ezzaze\SsimParser;
 
 use Ezzaze\SsimParser\Contracts\SsimVersionContract;
 use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidRegexClassException};
-use Ezzaze\SsimParser\Versions\Version3;
 use \Carbon\Carbon;
+use PharIo\Version\InvalidVersionException;
 
 class SsimParser
 {
@@ -17,8 +17,8 @@ class SsimParser
 
     function __construct()
     {
-        $this->version = Version3::getName();
         $this->recordTypesSupported = $this->getSupportedVersions();
+        $this->setVersion(\Ezzaze\SsimParser\Versions\Version3::class);
     }
 
     /**
@@ -47,7 +47,7 @@ class SsimParser
     public function load(string $source): self
     {
         if (empty($source)) {
-            throw new EmptyDataSourceException("Data source cannot be empty");
+            throw new EmptyDataSourceException("Data source cannot be empty.");
         }
         $this->rawData = is_file($source) ? file_get_contents($source) : $source;
         $this->dataLines = preg_split('/\r\n|\r|\n/', $this->rawData);
@@ -58,12 +58,21 @@ class SsimParser
     /**
      * Set the SSIM version to extract manually
      *
-     * @param  SsimVersionContract $version
+     * @param  string $version_class
      * @return self
+     * @throws InvalidVersionException
      */
-    public function setVersion(SsimVersionContract $version): self
+    public function setVersion(string $version_class): self
     {
-        $this->version = $version::getName();
+        if (!class_exists($version_class)) {
+            throw new InvalidVersionException("Class {$version_class} does not exist.");
+        }
+
+        $class = new \ReflectionClass($version_class);
+        if (!$class->implementsInterface(SsimVersionContract::class)) {
+            throw new InvalidVersionException("Class {$version_class} must implement SsimVersionContract interface.");
+        }
+        $this->version = ($class->newInstance())::getName();
 
         return $this;
     }
@@ -96,7 +105,7 @@ class SsimParser
     private function extractData(string $data): array
     {
         if (!class_exists('Ezzaze\SsimParser\Regexes\Version' . $this->version)) {
-            throw new InvalidRegexClassException("Ssim regex class does not exist");
+            throw new InvalidRegexClassException("Regex class 'Ezzaze\SsimParser\Regexes\Version{$this->version}' does not exist");
         }
 
         $object = (object)[];
