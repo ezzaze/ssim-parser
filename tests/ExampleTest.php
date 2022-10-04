@@ -39,13 +39,13 @@ $data = "
 ";
 
 it('can extract SSIM v3 data', function () use ($data) {
-    $ssim = (new SsimParser)->setVersion(Version3::class)->load($data);
+    $ssim = (new SsimParser())->setVersion(Version3::class)->load($data);
     expect($ssim->parse())->toBeArray();
     expect(count($ssim->parse()))->toBeGreaterThan(0);
 });
 
 it('throws invalid version class exception', function () use ($data) {
-    $ssim = (new SsimParser)->setVersion(RegexesVersion3::class)->load($data);
+    $ssim = (new SsimParser())->setVersion(RegexesVersion3::class)->load($data);
     expect($ssim->parse())->toBeArray();
 })->throws(InvalidVersionException::class);
 
