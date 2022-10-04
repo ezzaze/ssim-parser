@@ -52,6 +52,7 @@ class SsimParser
         }
         $this->rawData = is_file($source) ? file_get_contents($source) : $source;
         $this->dataLines = preg_split('/\r\n|\r|\n/', $this->rawData);
+
         return $this;
     }
 

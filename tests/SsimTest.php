@@ -50,6 +50,6 @@ it('throws invalid version class exception', function () use ($data) {
 })->throws(InvalidVersionException::class);
 
 it('returns empty list on invalid source', function () {
-    $ssim = (new SsimParser)->load("this is a trash string");
+    $ssim = (new SsimParser())->load("this is a trash string");
     expect(count($ssim->parse()))->toBeLessThanOrEqual(0);
 });
