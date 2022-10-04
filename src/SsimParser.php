@@ -2,9 +2,9 @@
 
 namespace Ezzaze\SsimParser;
 
+use Carbon\Carbon;
 use Ezzaze\SsimParser\Contracts\SsimVersionContract;
 use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidRegexClassException};
-use \Carbon\Carbon;
 use PharIo\Version\InvalidVersionException;
 
 class SsimParser
@@ -15,7 +15,7 @@ class SsimParser
     protected array $dataLines = [];
     protected array $recordTypesSupported = [];
 
-    function __construct()
+    public function __construct()
     {
         $this->recordTypesSupported = $this->getSupportedVersions();
         $this->setVersion(\Ezzaze\SsimParser\Versions\Version3::class);
@@ -34,6 +34,7 @@ class SsimParser
                 $versions[] = (new \ReflectionClass($className))->newInstance()->getName();
             }
         }
+
         return $versions;
     }
 
@@ -64,12 +65,12 @@ class SsimParser
      */
     public function setVersion(string $version_class): self
     {
-        if (!class_exists($version_class)) {
+        if (! class_exists($version_class)) {
             throw new InvalidVersionException("Class {$version_class} does not exist.");
         }
 
         $class = new \ReflectionClass($version_class);
-        if (!$class->implementsInterface(SsimVersionContract::class)) {
+        if (! $class->implementsInterface(SsimVersionContract::class)) {
             throw new InvalidVersionException("Class {$version_class} must implement SsimVersionContract interface.");
         }
         $this->version = ($class->newInstance())::getName();
@@ -104,7 +105,7 @@ class SsimParser
      */
     private function extractData(string $data): array
     {
-        if (!class_exists('Ezzaze\SsimParser\Regexes\Version' . $this->version)) {
+        if (! class_exists('Ezzaze\SsimParser\Regexes\Version' . $this->version)) {
             throw new InvalidRegexClassException("Regex class 'Ezzaze\SsimParser\Regexes\Version{$this->version}' does not exist");
         }
 
@@ -112,7 +113,7 @@ class SsimParser
         $class = new \ReflectionClass('Ezzaze\SsimParser\Regexes\Version' . $this->version);
         foreach ($class->getConstants() as $name => $regex) {
             preg_match($regex, $data, $matches);
-            if (!in_array($regex, $class->newInstance()->getHiddenAttributes())) {
+            if (! in_array($regex, $class->newInstance()->getHiddenAttributes())) {
                 $object->{strtolower($name)} = trim($matches[strtolower($name)]) ?? null;
             }
             $data = preg_replace($regex, '', $data, 1);
@@ -200,6 +201,7 @@ class SsimParser
             } elseif ($a[$key] > $b[$key]) {
                 return 1;
             }
+
             return 0;
         });
 
