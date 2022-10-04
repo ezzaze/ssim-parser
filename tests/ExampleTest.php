@@ -41,9 +41,15 @@ $data = "
 it('can extract SSIM v3 data', function () use ($data) {
     $ssim = (new SsimParser)->setVersion(Version3::class)->load($data);
     expect($ssim->parse())->toBeArray();
+    expect(count($ssim->parse()))->toBeGreaterThan(0);
 });
 
 it('throws invalid version class exception', function () use ($data) {
     $ssim = (new SsimParser)->setVersion(RegexesVersion3::class)->load($data);
     expect($ssim->parse())->toBeArray();
 })->throws(InvalidVersionException::class);
+
+it('returns empty list on invalid source', function () {
+    $ssim = (new SsimParser)->load("this is a trash string");
+    expect(count($ssim->parse()))->toBeLessThanOrEqual(0);
+});

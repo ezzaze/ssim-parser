@@ -51,7 +51,6 @@ class SsimParser
         }
         $this->rawData = is_file($source) ? file_get_contents($source) : $source;
         $this->dataLines = preg_split('/\r\n|\r|\n/', $this->rawData);
-
         return $this;
     }
 
@@ -89,7 +88,7 @@ class SsimParser
             if (str_split(trim($line))[0] != $this->version) {
                 continue;
             }
-            $output = array_merge_recursive($output, $this->extractData($line));
+            $output = array_merge_recursive($output, $this->extractData(trim($line)));
         }
 
         return $this->sort($output, 'departure_utc_datetime');
