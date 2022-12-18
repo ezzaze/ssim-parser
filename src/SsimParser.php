@@ -3,14 +3,14 @@
 namespace Ezzaze\SsimParser;
 
 use Carbon\Carbon;
-use Ezzaze\SsimParser\Contracts\SsimVersionContract;
-use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidRegexClassException};
-use PharIo\Version\InvalidVersionException;
+use Ezzaze\SsimParser\Contracts\{SsimRegexContract, SsimVersionContract};
+use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidContractException, InvalidRegexClassException, InvalidVersionClassException};
 
 class SsimParser
 {
     protected string $rawData;
-    protected int $version;
+    protected $version;
+    protected $regex;
     protected string $ssimVersion;
     protected array $dataLines = [];
     protected array $recordTypesSupported = [];
@@ -19,6 +19,7 @@ class SsimParser
     {
         $this->recordTypesSupported = $this->getSupportedVersions();
         $this->setVersion(\Ezzaze\SsimParser\Versions\Version3::class);
+        $this->setRegex(\Ezzaze\SsimParser\Regexes\Version3::class);
     }
 
     /**
@@ -61,19 +62,43 @@ class SsimParser
      *
      * @param  string $version_class
      * @return self
-     * @throws InvalidVersionException
+     * @throws InvalidVersionClassException
+     * @throws InvalidContractException
      */
     public function setVersion(string $version_class): self
     {
-        if (! class_exists($version_class)) {
-            throw new InvalidVersionException("Class {$version_class} does not exist.");
+        if (!class_exists($version_class)) {
+            throw new InvalidVersionClassException("Class {$version_class} does not exist.");
         }
 
         $class = new \ReflectionClass($version_class);
-        if (! $class->implementsInterface(SsimVersionContract::class)) {
-            throw new InvalidVersionException("Class {$version_class} must implement SsimVersionContract interface.");
+        if (!$class->implementsInterface(SsimVersionContract::class)) {
+            throw new InvalidContractException("Class {$version_class} must implement SsimVersionContract interface.");
         }
-        $this->version = ($class->newInstance())::getName();
+        $this->version = $class->newInstance()::getName();
+
+        return $this;
+    }
+
+    /**
+     * Set the SSIM regex class to be used for data extraction
+     *
+     * @param  string $regex_class
+     * @return self
+     * @throws InvalidVersionClassException
+     * @throws InvalidContractException
+     */
+    public function setRegex(string $regex_class): self
+    {
+        if (!class_exists($regex_class)) {
+            throw new InvalidRegexClassException("Class {$regex_class} does not exist.");
+        }
+
+        $class = new \ReflectionClass($regex_class);
+        if (!$class->implementsInterface(SsimRegexContract::class)) {
+            throw new InvalidContractException("Class {$regex_class} must implement SsimRegexContract interface.");
+        }
+        $this->regex = $regex_class;
 
         return $this;
     }
@@ -105,15 +130,11 @@ class SsimParser
      */
     private function extractData(string $data): array
     {
-        if (! class_exists('Ezzaze\SsimParser\Regexes\Version' . $this->version)) {
-            throw new InvalidRegexClassException("Regex class 'Ezzaze\SsimParser\Regexes\Version{$this->version}' does not exist");
-        }
-
         $object = (object)[];
-        $class = new \ReflectionClass('Ezzaze\SsimParser\Regexes\Version' . $this->version);
+        $class = new \ReflectionClass($this->regex);
         foreach ($class->getConstants() as $name => $regex) {
             preg_match($regex, $data, $matches);
-            if (! in_array($regex, $class->newInstance()->getHiddenAttributes())) {
+            if (!in_array($regex, $class->newInstance()->getHiddenAttributes())) {
                 $object->{strtolower($name)} = trim($matches[strtolower($name)]) ?? null;
             }
             $data = preg_replace($regex, '', $data, 1);

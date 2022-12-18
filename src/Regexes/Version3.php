@@ -2,7 +2,9 @@
 
 namespace Ezzaze\SsimParser\Regexes;
 
-class Version3
+use Ezzaze\SsimParser\Contracts\SsimRegexContract;
+
+class Version3 implements SsimRegexContract
 {
     public const RECORD_TYPE = '/(?P<record_type>3)/';
     public const OPERATIONAL_SUFFIX = '/(?P<operational_suffix>.{1})/';
