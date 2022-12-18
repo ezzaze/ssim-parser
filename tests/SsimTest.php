@@ -61,6 +61,6 @@ it('throws invalid regex class exception', function () use ($data) {
 })->throws(InvalidRegexClassException::class);
 
 it('throws invalid contract exception', function () use ($data) {
-    $ssim = (new SsimParser())->setVersion(get_class(new class{}))->load($data);
+    $ssim = (new SsimParser())->setVersion(get_class(new class () {}))->load($data);
     expect($ssim->parse())->toBeArray();
 })->throws(InvalidContractException::class);
