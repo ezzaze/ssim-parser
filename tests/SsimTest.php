@@ -1,9 +1,10 @@
 <?php
 
-use Ezzaze\SsimParser\Regexes\Version3 as RegexesVersion3;
+use Ezzaze\SsimParser\Exceptions\InvalidContractException;
+use Ezzaze\SsimParser\Exceptions\InvalidRegexClassException;
+use Ezzaze\SsimParser\Exceptions\InvalidVersionClassException;
 use Ezzaze\SsimParser\SsimParser;
 use Ezzaze\SsimParser\Versions\Version3;
-use PharIo\Version\InvalidVersionException;
 
 $data = "
     1AIRLINE STANDARD SCHEDULE DATA SET     1                                                                                                                                                      001000001
@@ -45,11 +46,21 @@ it('can extract SSIM v3 data', function () use ($data) {
 });
 
 it('throws invalid version class exception', function () use ($data) {
-    $ssim = (new SsimParser())->setVersion(RegexesVersion3::class)->load($data);
+    $ssim = (new SsimParser())->setVersion('\\Some\\Dummy\\Class')->load($data);
     expect($ssim->parse())->toBeArray();
-})->throws(InvalidVersionException::class);
+})->throws(InvalidVersionClassException::class);
 
 it('returns empty list on invalid source', function () {
     $ssim = (new SsimParser())->load("this is a trash string");
     expect(count($ssim->parse()))->toBeLessThanOrEqual(0);
 });
+
+it('throws invalid regex class exception', function () use ($data) {
+    $ssim = (new SsimParser())->setRegex('\\Some\\Dummy\Class')->load($data);
+    expect($ssim->parse())->toBeArray();
+})->throws(InvalidRegexClassException::class);
+
+it('throws invalid contract exception', function () use ($data) {
+    $ssim = (new SsimParser())->setVersion(get_class(new class{}))->load($data);
+    expect($ssim->parse())->toBeArray();
+})->throws(InvalidContractException::class);
