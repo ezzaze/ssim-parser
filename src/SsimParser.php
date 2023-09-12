@@ -52,6 +52,7 @@ class SsimParser
         }
         $this->rawData = is_file($source) ? file_get_contents($source) : $source;
         $this->dataLines = preg_split('/\r\n|\r|\n/', $this->rawData);
+
         return $this;
     }
 
@@ -112,7 +113,7 @@ class SsimParser
         $class = new \ReflectionClass('Ezzaze\SsimParser\Regexes\Version' . $this->version);
         foreach ($class->getConstants() as $name => $regex) {
             preg_match($regex, $data, $matches);
-            if (sizeof($matches) > 0 && !in_array($regex, $class->newInstance()->getHiddenAttributes())) {
+            if (sizeof($matches) > 0 && ! in_array($regex, $class->newInstance()->getHiddenAttributes())) {
                 $object->{strtolower($name)} = trim($matches[strtolower($name)]) ?? null;
             }
             $data = preg_replace($regex, '', $data, 1);
