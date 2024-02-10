@@ -134,7 +134,7 @@ class SsimParser
         $class = new \ReflectionClass($this->regex);
         foreach ($class->getConstants() as $name => $regex) {
             preg_match($regex, $data, $matches);
-            if (! in_array($regex, $class->newInstance()->getHiddenAttributes())) {
+            if (sizeof($matches) > 0 && ! in_array($regex, $class->newInstance()->getHiddenAttributes())) {
                 $object->{strtolower($name)} = trim($matches[strtolower($name)]) ?? null;
             }
             $data = preg_replace($regex, '', $data, 1);
@@ -162,6 +162,7 @@ class SsimParser
             $utc_arrival = (clone $local_arrival)->setTimezone('UTC');
 
             $flights[] = [
+                "uid" => $local_departure->format('YmdHis') . $data->flight_number,
                 "airline_designator" => $data->airline_designator,
                 "service_type" => $data->service_type,
                 "flight_number" => $data->flight_number,
