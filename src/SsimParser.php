@@ -4,7 +4,7 @@ namespace Ezzaze\SsimParser;
 
 use Carbon\Carbon;
 use Ezzaze\SsimParser\Contracts\{SsimRegexContract, SsimVersionContract};
-use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidContractException, InvalidRegexClassException, InvalidVersionClassException};
+use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidContractException, InvalidInputException, InvalidRegexClassException, InvalidVersionClassException};
 
 class SsimParser
 {
@@ -162,7 +162,7 @@ class SsimParser
             $utc_arrival = (clone $local_arrival)->setTimezone('UTC');
 
             $flights[] = [
-                "uid" => $local_departure->format('YmdHis') . $data->flight_number,
+                "uid" => $local_departure->format('YmdHis') . $this->parseFlightNumber($data->flight_number),
                 "airline_designator" => $data->airline_designator,
                 "service_type" => $data->service_type,
                 "flight_number" => $data->flight_number,
@@ -228,5 +228,42 @@ class SsimParser
         });
 
         return $data;
+    }
+
+    /**
+     * Parse the flight number and replace letters with numbers in the case of delayed flights (eg: 123D)
+     *
+     * @param  string $letter
+     * @return int
+     * @throws InvalidInputException
+     */
+    private function parseFlightNumber(string $flight_number): int
+    {
+        $result = $flight_number;
+        for ($i = 0; $i < strlen($flight_number); $i++) {
+            if (! is_numeric($flight_number[$i])) {
+                $result[$i] = $this->convertLetterToDigit($flight_number[$i]);
+            }
+        }
+
+        return intval($result);
+    }
+
+    /**
+     * Convert a letter into a digit
+     *
+     * @param  string $letter
+     * @return int
+     * @throws InvalidInputException
+     */
+    private function convertLetterToDigit(string $letter): int
+    {
+        if (ctype_upper($letter)) {
+            return ord($letter) - 64;
+        } elseif (ctype_lower($letter)) {
+            return ord($letter) - 96;
+        } else {
+            throw new InvalidInputException("Invalid input: Please provide a letter  (A-Z or a-z).");
+        }
     }
 }
