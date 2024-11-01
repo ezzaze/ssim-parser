@@ -112,7 +112,7 @@ class SsimParser
     {
         $output = [];
         foreach ($this->dataLines as $line) {
-            if (str_split(trim($line))[0] != $this->version) {
+            if (empty($line) || str_split(trim($line))[0] != $this->version) {
                 continue;
             }
             $output = array_merge_recursive($output, $this->extractData(trim($line)));
