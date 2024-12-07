@@ -55,6 +55,7 @@ $schedule = $skeleton->parse($data);
 var_dump($schedule[0]);
 /*
     array:11 [
+        "uid" => "30330703070000501"
         "airline_designator" => "ME"
         "service_type" => "J"
         "flight_number" => "501"
