@@ -1,8 +1,6 @@
 <?php
 
-use Ezzaze\SsimParser\Exceptions\InvalidContractException;
-use Ezzaze\SsimParser\Exceptions\InvalidRegexClassException;
-use Ezzaze\SsimParser\Exceptions\InvalidVersionClassException;
+use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidContractException, InvalidRegexClassException, InvalidVersionClassException};
 use Ezzaze\SsimParser\SsimParser;
 use Ezzaze\SsimParser\Versions\Version3;
 
@@ -40,28 +38,52 @@ $data = "
 ";
 
 it('can extract SSIM v3 data', function () use ($data) {
-    $ssim = (new SsimParser())->setVersion(Version3::class)->load($data);
-    $data = $ssim->parse();
-    expect($data)->toBeArray();
-    expect(count($data))->toBeGreaterThan(0);
+    $ssim = (new SsimParser(new Version3()))->load($data);
+    $output = $ssim->parse();
+
+    expect($output)->toBeArray();
+    expect(count($output))->toBeGreaterThan(0);
+
+    expect($output[0])->toHaveKeys([
+        'uid',
+        'airline_designator',
+        'service_type',
+        'flight_number',
+        'departure_datetime',
+        'arrival_datetime',
+        'departure_utc_datetime',
+        'arrival_utc_datetime',
+        'departure_iata',
+        'arrival_iata',
+        'aicraft_type',
+        'aicraft_configuration',
+    ]);
 });
 
 it('throws invalid version class exception', function () use ($data) {
-    $ssim = (new SsimParser())->setVersion('\\Some\\Dummy\\Class')->load($data);
-    expect($ssim->parse())->toBeArray();
-})->throws(InvalidVersionClassException::class);
+    $ssim = (new SsimParser())->setVersion('NonExistentVersionClass')->load($data);
+    $ssim->parse();
+})->throws(InvalidVersionClassException::class, 'Class NonExistentVersionClass does not exist.');
 
 it('returns empty list on invalid source', function () {
-    $ssim = (new SsimParser())->load("this is a trash string");
-    expect(count($ssim->parse()))->toBeLessThanOrEqual(0);
+    $ssim = (new SsimParser())->load("this is not a valid SSIM string");
+    $output = $ssim->parse();
+
+    expect($output)->toBeArray();
+    expect($output)->toBeEmpty();
 });
 
 it('throws invalid regex class exception', function () use ($data) {
-    $ssim = (new SsimParser())->setRegex('\\Some\\Dummy\Class')->load($data);
-    expect($ssim->parse())->toBeArray();
-})->throws(InvalidRegexClassException::class);
+    $ssim = (new SsimParser())->setRegex('NonExistentRegexClass')->load($data);
+    $ssim->parse();
+})->throws(InvalidRegexClassException::class, 'Class NonExistentRegexClass does not exist.');
 
 it('throws invalid contract exception', function () use ($data) {
     $ssim = (new SsimParser())->setVersion(get_class(new class () {}))->load($data);
-    expect($ssim->parse())->toBeArray();
+    $ssim->parse();
 })->throws(InvalidContractException::class);
+
+it('throws empty data source exception', function () {
+    $ssim = new SsimParser();
+    $ssim->load("");
+})->throws(EmptyDataSourceException::class, 'Data source cannot be empty.');
