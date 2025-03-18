@@ -38,7 +38,7 @@ $data = "
 ";
 
 it('can extract SSIM v3 data', function () use ($data) {
-    $ssim = (new SsimParser(new Version3))->load($data);
+    $ssim = (new SsimParser(new Version3()))->load($data);
     $output = $ssim->parse();
 
     expect($output)->toBeArray();
@@ -79,7 +79,7 @@ it('throws invalid regex class exception', function () use ($data) {
 })->throws(InvalidRegexClassException::class, 'Class NonExistentRegexClass does not exist.');
 
 it('throws invalid contract exception', function () use ($data) {
-    $ssim = (new SsimParser())->setVersion(get_class(new class() {}))->load($data);
+    $ssim = (new SsimParser())->setVersion(get_class(new class () {}))->load($data);
     $ssim->parse();
 })->throws(InvalidContractException::class);
 
