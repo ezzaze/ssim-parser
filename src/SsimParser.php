@@ -20,16 +20,29 @@ class SsimParser
     /**
      * Constructor for SsimParser.
      *
-     * Initializes the parser with default or provided implementations of SsimVersionContract and SsimRegexContract.
+     * Initializes the parser with the provided or default implementations of SsimVersionContract and SsimRegexContract.
+     * If no implementations are provided, the constructor defaults to `Version3` for the version and `Version3Regex` for the regex.
      *
-     * @param SsimVersionContract $version The version implementation to use (default: Version3).
-     * @param SsimRegexContract $regex The regex implementation to use (default: Version3Regex).
+     * @param SsimVersionContract|null $version The version implementation to use. If null, defaults to `Version3`.
+     * @param SsimRegexContract|null $regex The regex implementation to use. If null, defaults to `Version3Regex`.
+     *
+     * @throws \RuntimeException If the default implementations (`Version3` or `Version3Regex`) are not found or cannot be instantiated.
      */
-    public function __construct(SsimVersionContract $version = new Version3, SsimRegexContract $regex = new Version3Regex)
+    public function __construct(?SsimVersionContract $version = null, ?SsimRegexContract $regex = null)
     {
+        $this->version = $version ?? new Version3();
+        $this->regex = $regex ?? new Version3Regex();
+
+        if ($this->version === null) {
+            throw new \RuntimeException('Default version implementation not found.');
+        }
+        if ($this->regex === null) {
+            throw new \RuntimeException('Default regex implementation not found.');
+        }
+
         $this->recordTypesSupported = $this->getSupportedVersions();
-        $this->setVersion(get_class($version));
-        $this->setRegex(get_class($regex));
+        $this->setVersion(get_class($this->version));
+        $this->setRegex(get_class($this->regex));
     }
 
     /**
