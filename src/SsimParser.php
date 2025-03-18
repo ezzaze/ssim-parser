@@ -5,8 +5,8 @@ namespace Ezzaze\SsimParser;
 use Carbon\Carbon;
 use Ezzaze\SsimParser\Contracts\{SsimRegexContract, SsimVersionContract};
 use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidContractException, InvalidInputException, InvalidRegexClassException, InvalidVersionClassException};
-use Ezzaze\SsimParser\Versions\{Version3};
 use Ezzaze\SsimParser\Regexes\Version3 as Version3Regex;
+use Ezzaze\SsimParser\Versions\{Version3};
 
 class SsimParser
 {
@@ -25,7 +25,7 @@ class SsimParser
      * @param SsimVersionContract $version The version implementation to use (default: Version3).
      * @param SsimRegexContract $regex The regex implementation to use (default: Version3Regex).
      */
-    public function __construct(SsimVersionContract $version = new Version3, SsimRegexContract $regex = new Version3Regex)
+    public function __construct(SsimVersionContract $version = new Version3(), SsimRegexContract $regex = new Version3Regex())
     {
         $this->recordTypesSupported = $this->getSupportedVersions();
         $this->setVersion(get_class($version));
@@ -85,12 +85,12 @@ class SsimParser
      */
     public function setVersion(string $version_class): self
     {
-        if (!class_exists($version_class)) {
+        if (! class_exists($version_class)) {
             throw new InvalidVersionClassException("Class {$version_class} does not exist.");
         }
 
         $class = new \ReflectionClass($version_class);
-        if (!$class->implementsInterface(SsimVersionContract::class)) {
+        if (! $class->implementsInterface(SsimVersionContract::class)) {
             throw new InvalidContractException("Class {$version_class} must implement SsimVersionContract interface.");
         }
         $this->version = $class->newInstance()::getName();
@@ -108,12 +108,12 @@ class SsimParser
      */
     public function setRegex(string $regex_class): self
     {
-        if (!class_exists($regex_class)) {
+        if (! class_exists($regex_class)) {
             throw new InvalidRegexClassException("Class {$regex_class} does not exist.");
         }
 
         $class = new \ReflectionClass($regex_class);
-        if (!$class->implementsInterface(SsimRegexContract::class)) {
+        if (! $class->implementsInterface(SsimRegexContract::class)) {
             throw new InvalidContractException("Class {$regex_class} must implement SsimRegexContract interface.");
         }
         $this->regex = $regex_class;
@@ -160,7 +160,7 @@ class SsimParser
         $class = new \ReflectionClass($this->regex);
         foreach ($class->getConstants() as $name => $regex) {
             preg_match($regex, $data, $matches);
-            if (sizeof($matches) > 0 && !in_array($regex, $class->newInstance()->getHiddenAttributes())) {
+            if (sizeof($matches) > 0 && ! in_array($regex, $class->newInstance()->getHiddenAttributes())) {
                 $object->{strtolower($name)} = trim($matches[strtolower($name)]) ?? null;
             }
             $data = preg_replace($regex, '', $data, 1);
@@ -262,7 +262,8 @@ class SsimParser
      */
     private function sort(array $data, string $key): array
     {
-        usort($data, fn($a, $b) => $a[$key] <=> $b[$key]);
+        usort($data, fn ($a, $b) => $a[$key] <=> $b[$key]);
+
         return $data;
     }
 
@@ -281,6 +282,7 @@ class SsimParser
         $digitMapping = array_merge(range(1, 26), range(1, 26));
 
         $result = strtr($flight_number, array_combine($letterToDigit, $digitMapping));
+
         return intval($result);
     }
 }
