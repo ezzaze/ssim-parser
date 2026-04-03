@@ -1,6 +1,12 @@
 <?php
 
-use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidContractException, InvalidRegexClassException, InvalidVersionClassException};
+declare(strict_types=1);
+
+use Ezzaze\SsimParser\Exceptions\EmptyDataSourceException;
+use Ezzaze\SsimParser\Exceptions\FileReadException;
+use Ezzaze\SsimParser\Exceptions\InvalidContractException;
+use Ezzaze\SsimParser\Exceptions\InvalidRegexClassException;
+use Ezzaze\SsimParser\Exceptions\InvalidVersionClassException;
 use Ezzaze\SsimParser\SsimParser;
 use Ezzaze\SsimParser\Versions\Version3;
 
@@ -55,9 +61,34 @@ it('can extract SSIM v3 data', function () use ($data) {
         'arrival_utc_datetime',
         'departure_iata',
         'arrival_iata',
-        'aicraft_type',
-        'aicraft_configuration',
+        'aircraft_type',
+        'aircraft_configuration',
     ]);
+});
+
+it('parses correct number of flights and values', function () use ($data) {
+    $output = (new SsimParser())->load($data)->parse();
+
+    expect($output)->toBeArray();
+    expect(count($output))->toBeGreaterThan(0);
+
+    // Verify first flight has expected values
+    $first = $output[0];
+    expect($first['airline_designator'])->toBe('ME');
+    expect($first['service_type'])->toBe('J');
+    expect($first['departure_iata'])->toBeIn(['EVN', 'HRG', 'SSH']);
+    expect($first['arrival_iata'])->toBeIn(['EVN', 'HRG', 'SSH']);
+    expect($first['aircraft_type'])->toBe('320');
+    expect($first['aircraft_configuration'])->toBe('Y174');
+});
+
+it('returns results sorted by departure_utc_datetime', function () use ($data) {
+    $output = (new SsimParser())->load($data)->parse();
+
+    for ($i = 1; $i < count($output); $i++) {
+        expect($output[$i]['departure_utc_datetime'])
+            ->toBeGreaterThanOrEqual($output[$i - 1]['departure_utc_datetime']);
+    }
 });
 
 it('throws invalid version class exception', function () use ($data) {
@@ -87,3 +118,38 @@ it('throws empty data source exception', function () {
     $ssim = new SsimParser();
     $ssim->load("");
 })->throws(EmptyDataSourceException::class, 'Data source cannot be empty.');
+
+it('throws file read exception for unreadable file', function () {
+    $ssim = new SsimParser();
+    // Create a temp file then make it unreadable
+    $tempFile = tempnam(sys_get_temp_dir(), 'ssim_test_');
+    if ($tempFile === false) {
+        $this->markTestSkipped('Could not create temp file');
+    }
+    file_put_contents($tempFile, 'test');
+    chmod($tempFile, 0000);
+
+    try {
+        $ssim->load($tempFile);
+    } finally {
+        chmod($tempFile, 0644);
+        unlink($tempFile);
+    }
+})->throws(FileReadException::class)->skipOnWindows();
+
+it('can load from a file path', function () use ($data) {
+    $tempFile = tempnam(sys_get_temp_dir(), 'ssim_test_');
+    if ($tempFile === false) {
+        $this->markTestSkipped('Could not create temp file');
+    }
+    file_put_contents($tempFile, $data);
+
+    try {
+        $output = (new SsimParser())->load($tempFile)->parse();
+        expect($output)->toBeArray();
+        expect(count($output))->toBeGreaterThan(0);
+        expect($output[0])->toHaveKey('aircraft_type');
+    } finally {
+        unlink($tempFile);
+    }
+});
