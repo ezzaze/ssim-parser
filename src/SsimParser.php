@@ -1,89 +1,80 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ezzaze\SsimParser;
 
 use Carbon\Carbon;
-use Ezzaze\SsimParser\Contracts\{SsimRegexContract, SsimVersionContract};
-use Ezzaze\SsimParser\Exceptions\{EmptyDataSourceException, InvalidContractException, InvalidInputException, InvalidRegexClassException, InvalidVersionClassException};
+use Ezzaze\SsimParser\Contracts\SsimRegexContract;
+use Ezzaze\SsimParser\Contracts\SsimVersionContract;
+use Ezzaze\SsimParser\Exceptions\EmptyDataSourceException;
+use Ezzaze\SsimParser\Exceptions\FileReadException;
+use Ezzaze\SsimParser\Exceptions\InvalidContractException;
+use Ezzaze\SsimParser\Exceptions\InvalidInputException;
+use Ezzaze\SsimParser\Exceptions\InvalidRegexClassException;
+use Ezzaze\SsimParser\Exceptions\InvalidVersionClassException;
 use Ezzaze\SsimParser\Regexes\Version3 as Version3Regex;
-use Ezzaze\SsimParser\Versions\{Version3};
+use Ezzaze\SsimParser\Versions\Version3;
 
 class SsimParser
 {
     protected string $rawData;
-    protected $version;
-    protected $regex;
-    protected string $ssimVersion;
+    protected int $versionNumber;
+    protected SsimRegexContract $regexInstance;
+
+    /** @var array<string, string> */
+    protected array $regexConstants = [];
+
+    /** @var list<string> */
+    protected array $hiddenAttributes = [];
+
+    /** @var list<string> */
     protected array $dataLines = [];
-    protected array $recordTypesSupported = [];
 
     /**
      * Constructor for SsimParser.
      *
      * Initializes the parser with the provided or default implementations of SsimVersionContract and SsimRegexContract.
-     * If no implementations are provided, the constructor defaults to `Version3` for the version and `Version3Regex` for the regex.
      *
-     * @param SsimVersionContract|null $version The version implementation to use. If null, defaults to `Version3`.
-     * @param SsimRegexContract|null $regex The regex implementation to use. If null, defaults to `Version3Regex`.
-     *
-     * @throws \RuntimeException If the default implementations (`Version3` or `Version3Regex`) are not found or cannot be instantiated.
+     * @param SsimVersionContract|null $version The version implementation to use. Defaults to Version3.
+     * @param SsimRegexContract|null $regex The regex implementation to use. Defaults to Version3Regex.
      */
     public function __construct(?SsimVersionContract $version = null, ?SsimRegexContract $regex = null)
     {
-        $this->version = $version ?? new Version3();
-        $this->regex = $regex ?? new Version3Regex();
+        $versionImpl = $version ?? new Version3();
+        $regexImpl = $regex ?? new Version3Regex();
 
-        if ($this->version === null) {
-            throw new \RuntimeException('Default version implementation not found.');
-        }
-        if ($this->regex === null) {
-            throw new \RuntimeException('Default regex implementation not found.');
-        }
-
-        $this->recordTypesSupported = $this->getSupportedVersions();
-        $this->setVersion(get_class($this->version));
-        $this->setRegex(get_class($this->regex));
-    }
-
-    /**
-     * Get a list of supported SSIM versions.
-     *
-     * This method scans all declared classes and identifies those that implement the SsimVersionContract interface.
-     *
-     * @return array An array of supported SSIM version names.
-     */
-    protected function getSupportedVersions(): array
-    {
-        static $versions = null;
-
-        if ($versions === null) {
-            $versions = [];
-            foreach (get_declared_classes() as $className) {
-                if (in_array(SsimVersionContract::class, class_implements($className))) {
-                    $versions[] = (new \ReflectionClass($className))->newInstance()->getName();
-                }
-            }
-        }
-
-        return $versions;
+        $this->versionNumber = $versionImpl::getName();
+        $this->setRegexInstance($regexImpl);
     }
 
     /**
      * Load SSIM data from a provided source.
      *
-     * The source can be either a file path or raw data. The data is split into lines for further processing.
+     * The source can be either a file path or raw data string.
      *
      * @param string $source The file path or raw data string.
      * @return self Returns the current instance for method chaining.
      * @throws EmptyDataSourceException If the provided source is empty.
+     * @throws FileReadException If the file exists but cannot be read.
      */
     public function load(string $source): self
     {
         if (empty($source)) {
             throw new EmptyDataSourceException("Data source cannot be empty.");
         }
-        $this->rawData = is_file($source) ? file_get_contents($source) : $source;
-        $this->dataLines = preg_split('/\r\n|\r|\n/', $this->rawData);
+
+        if (is_file($source)) {
+            $contents = file_get_contents($source);
+            if ($contents === false) {
+                throw new FileReadException("Unable to read file: {$source}");
+            }
+            $this->rawData = $contents;
+        } else {
+            $this->rawData = $source;
+        }
+
+        $this->dataLines = preg_split('/\r\n|\r|\n/', $this->rawData) ?: [];
 
         return $this;
     }
@@ -91,7 +82,7 @@ class SsimParser
     /**
      * Set the SSIM version to use for parsing.
      *
-     * @param string $version_class The class name of the version implementation.
+     * @param string $version_class The fully qualified class name of the version implementation.
      * @return self Returns the current instance for method chaining.
      * @throws InvalidVersionClassException If the provided class does not exist.
      * @throws InvalidContractException If the provided class does not implement SsimVersionContract.
@@ -106,7 +97,10 @@ class SsimParser
         if (! $class->implementsInterface(SsimVersionContract::class)) {
             throw new InvalidContractException("Class {$version_class} must implement SsimVersionContract interface.");
         }
-        $this->version = $class->newInstance()::getName();
+
+        /** @var SsimVersionContract $instance */
+        $instance = $class->newInstance();
+        $this->versionNumber = $instance::getName();
 
         return $this;
     }
@@ -114,7 +108,7 @@ class SsimParser
     /**
      * Set the SSIM regex class to use for data extraction.
      *
-     * @param string $regex_class The class name of the regex implementation.
+     * @param string $regex_class The fully qualified class name of the regex implementation.
      * @return self Returns the current instance for method chaining.
      * @throws InvalidRegexClassException If the provided class does not exist.
      * @throws InvalidContractException If the provided class does not implement SsimRegexContract.
@@ -129,7 +123,10 @@ class SsimParser
         if (! $class->implementsInterface(SsimRegexContract::class)) {
             throw new InvalidContractException("Class {$regex_class} must implement SsimRegexContract interface.");
         }
-        $this->regex = $regex_class;
+
+        /** @var SsimRegexContract $instance */
+        $instance = $class->newInstance();
+        $this->setRegexInstance($instance);
 
         return $this;
     }
@@ -137,18 +134,19 @@ class SsimParser
     /**
      * Parse the SSIM data and retrieve the results.
      *
-     * This method processes each line of the loaded data and extracts relevant information using the configured regex.
-     *
-     * @return array An array of parsed flight data.
+     * @return array<int, array<string, string>> An array of parsed flight data.
      */
     public function parse(): array
     {
         $output = [];
+        $versionStr = (string) $this->versionNumber;
+
         foreach ($this->dataLines as $line) {
-            if (empty($line) || str_split(trim($line))[0] != $this->version) {
+            $trimmed = trim($line);
+            if ($trimmed === '' || $trimmed[0] !== $versionStr) {
                 continue;
             }
-            $output = array_merge_recursive($output, $this->extractData(trim($line)));
+            $output = array_merge($output, $this->extractData($trimmed));
         }
 
         return $this->sort($output, 'departure_utc_datetime');
@@ -157,26 +155,25 @@ class SsimParser
     /**
      * Extract all relevant data from an SSIM line.
      *
-     * This method uses the configured regex to extract data from a single SSIM line.
-     *
      * @param string $data The SSIM line to process.
-     * @return array An array of extracted data.
+     * @return array<int, array<string, string>> An array of extracted data.
      * @throws InvalidInputException If the input data is empty.
      */
     private function extractData(string $data): array
     {
-        if (empty($data)) {
+        if ($data === '') {
             throw new InvalidInputException("Data cannot be empty.");
         }
 
-        $object = (object)[];
-        $class = new \ReflectionClass($this->regex);
-        foreach ($class->getConstants() as $name => $regex) {
+        $object = new \stdClass();
+
+        foreach ($this->regexConstants as $name => $regex) {
             preg_match($regex, $data, $matches);
-            if (sizeof($matches) > 0 && ! in_array($regex, $class->newInstance()->getHiddenAttributes())) {
-                $object->{strtolower($name)} = trim($matches[strtolower($name)]) ?? null;
+            if (count($matches) > 0 && ! in_array($regex, $this->hiddenAttributes, true)) {
+                $key = strtolower($name);
+                $object->{$key} = trim($matches[$key] ?? '') ?: null;
             }
-            $data = preg_replace($regex, '', $data, 1);
+            $data = preg_replace($regex, '', $data, 1) ?? $data;
         }
 
         return $this->formatResult($object);
@@ -185,10 +182,8 @@ class SsimParser
     /**
      * Format the extracted data into a structured array.
      *
-     * This method processes the extracted data and generates flight information for each operation date.
-     *
      * @param object $data The extracted data object.
-     * @return array An array of formatted flight data.
+     * @return array<int, array<string, string>> An array of formatted flight data.
      */
     private function formatResult(object $data): array
     {
@@ -207,18 +202,14 @@ class SsimParser
     /**
      * Create a flight array from the provided data and date.
      *
-     * This method constructs a flight array containing details such as departure and arrival times,
-     * flight number, airline designator, and other relevant information.
-     *
      * @param object $data An object containing flight-related data.
      * @param string $date The date of the flight operation in 'Y-m-d' format.
-     * @return array An associative array representing the flight.
-     * @throws \InvalidArgumentException If the input data is invalid or missing required fields.
+     * @return array<string, string> An associative array representing the flight.
      */
     private function createFlight(object $data, string $date): array
     {
         $local_departure = Carbon::parse($date . ' ' . $data->aircraft_departure_time . $data->utc_local_departure_time_variant);
-        $local_arrival = Carbon::parse($date . ' ' . $data->aircraft_arrival_time . $data->utc_local_arrival_time_variant)->addDays(intVal($data->date_variation));
+        $local_arrival = Carbon::parse($date . ' ' . $data->aircraft_arrival_time . $data->utc_local_arrival_time_variant)->addDays(intval($data->date_variation));
         $utc_departure = (clone $local_departure)->setTimezone('UTC');
         $utc_arrival = (clone $local_arrival)->setTimezone('UTC');
 
@@ -233,8 +224,8 @@ class SsimParser
             "arrival_utc_datetime" => $utc_arrival->format('Y-m-d H:i:s'),
             "departure_iata" => $data->departure_station,
             "arrival_iata" => $data->arrival_station,
-            "aicraft_type" => $data->aircraft_type,
-            "aicraft_configuration" => $data->aircraft_configuration_version,
+            "aircraft_type" => $data->aircraft_type,
+            "aircraft_configuration" => $data->aircraft_configuration_version,
         ];
     }
 
@@ -243,8 +234,8 @@ class SsimParser
      *
      * @param string $startDate The start date in 'Y-m-d' format.
      * @param string $endDate The end date in 'Y-m-d' format.
-     * @param array $daysOfWeek An array of days of the week (e.g., [1, 2, 3] for Monday, Tuesday, Wednesday).
-     * @return array An array of dates in 'Y-m-d' format.
+     * @param array<int, string> $daysOfWeek Days of the week (1-7 for Monday-Sunday).
+     * @return array<int, string> An array of dates in 'Y-m-d' format.
      */
     private function getDatesInInterval(string $startDate, string $endDate, array $daysOfWeek = []): array
     {
@@ -254,11 +245,13 @@ class SsimParser
 
         $result = [];
 
+        /** @var \DateInterval $interval */
         $interval = \DateInterval::createFromDateString('1 day');
+
         $period = new \DatePeriod($begin, $interval, $end);
         foreach ($period as $dt) {
-            $numOfDay = date("N", $dt->format('U'));
-            if (in_array($numOfDay, $daysOfWeek)) {
+            $numOfDay = $dt->format('N');
+            if (in_array($numOfDay, $daysOfWeek, true)) {
                 $result[] = $dt->format('Y-m-d');
             }
         }
@@ -269,13 +262,13 @@ class SsimParser
     /**
      * Sort an array by a specified key.
      *
-     * @param array $data The array to sort.
+     * @param array<int, array<string, string>> $data The array to sort.
      * @param string $key The key to sort by.
-     * @return array The sorted array.
+     * @return array<int, array<string, string>> The sorted array.
      */
     private function sort(array $data, string $key): array
     {
-        usort($data, fn ($a, $b) => $a[$key] <=> $b[$key]);
+        usort($data, fn (array $a, array $b): int => $a[$key] <=> $b[$key]);
 
         return $data;
     }
@@ -283,11 +276,8 @@ class SsimParser
     /**
      * Parse the flight number and replace letters with numbers.
      *
-     * This method is used to handle delayed flights (e.g., "123D").
-     *
      * @param string $flight_number The flight number to parse.
      * @return int The parsed flight number as an integer.
-     * @throws InvalidInputException If the flight number contains invalid characters.
      */
     private function parseFlightNumber(string $flight_number): int
     {
@@ -297,5 +287,22 @@ class SsimParser
         $result = strtr($flight_number, array_combine($letterToDigit, $digitMapping));
 
         return intval($result);
+    }
+
+    /**
+     * Cache the regex constants and hidden attributes from a regex instance.
+     */
+    private function setRegexInstance(SsimRegexContract $instance): void
+    {
+        $this->regexInstance = $instance;
+        $this->hiddenAttributes = $instance->getHiddenAttributes();
+
+        $class = new \ReflectionClass($instance);
+        $this->regexConstants = [];
+        foreach ($class->getConstants() as $name => $value) {
+            if (is_string($value)) {
+                $this->regexConstants[$name] = $value;
+            }
+        }
     }
 }
