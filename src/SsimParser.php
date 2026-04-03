@@ -65,7 +65,7 @@ class SsimParser
         }
 
         if (is_file($source)) {
-            $contents = file_get_contents($source);
+            $contents = @file_get_contents($source);
             if ($contents === false) {
                 throw new FileReadException("Unable to read file: {$source}");
             }
