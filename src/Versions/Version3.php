@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ezzaze\SsimParser\Versions;
 
 use Ezzaze\SsimParser\Contracts\SsimVersionContract;

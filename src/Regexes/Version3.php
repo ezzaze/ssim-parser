@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Ezzaze\SsimParser\Regexes;
 
 use Ezzaze\SsimParser\Contracts\SsimRegexContract;
@@ -52,6 +54,7 @@ class Version3 implements SsimRegexContract
     public const DATE_VARIATION = '/(?P<date_variation>.{2})/';
     public const RECORD_SERIAL_NUMBER = '/(?P<record_serial_number>.{6})/';
 
+    /** @var list<string> */
     protected array $hiddenAttributes = [
         self::PLACEHOLDER_0,
         self::PLACEHOLDER_1,
@@ -65,6 +68,7 @@ class Version3 implements SsimRegexContract
         self::SECURE_FLIGHT_INDICATOR,
     ];
 
+    /** @return list<string> */
     public function getHiddenAttributes(): array
     {
         return $this->hiddenAttributes;
