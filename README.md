@@ -9,7 +9,7 @@ This package allows the developers working with airline companies to extract the
 
 ## Requirements
 
-- PHP 8.1 or higher
+- PHP 8.2 or higher
 
 ## Installation
 
