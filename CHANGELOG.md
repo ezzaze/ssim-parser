@@ -1,5 +1,12 @@
 # Changelog
 
+## Version 1.2.1 (2026-04-03)
+
+### Other
+
+- Develop (#35) (feb18655)
+- Bump actions/checkout from 4 to 5 (#29) (441b080e)
+
 ## Version 1.2.0 (2025-03-18)
 
 ### Features
