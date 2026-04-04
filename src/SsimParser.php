@@ -8,7 +8,6 @@ use Carbon\Carbon;
 use Ezzaze\SsimParser\Collections\FlightLegCollection;
 use Ezzaze\SsimParser\Contracts\SsimRegexContract;
 use Ezzaze\SsimParser\Contracts\SsimVersionContract;
-use Ezzaze\SsimParser\DTOs\FlightLeg;
 use Ezzaze\SsimParser\Exceptions\EmptyDataSourceException;
 use Ezzaze\SsimParser\Exceptions\FileReadException;
 use Ezzaze\SsimParser\Exceptions\InvalidContractException;

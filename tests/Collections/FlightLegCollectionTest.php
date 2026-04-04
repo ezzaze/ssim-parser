@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 use Ezzaze\SsimParser\Collections\FlightLegCollection;
 use Ezzaze\SsimParser\DTOs\FlightLeg;
-use Ezzaze\SsimParser\Enums\ServiceType;
 
 function makeFlight(string $flightNumber, string $departureUtc, string $departureIata = 'EVN'): FlightLeg
 {

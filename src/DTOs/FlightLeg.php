@@ -21,7 +21,8 @@ final readonly class FlightLeg implements \JsonSerializable
         public string $arrivalIata,
         public string $aircraftType,
         public string $aircraftConfiguration,
-    ) {}
+    ) {
+    }
 
     /**
      * Create a FlightLeg from the legacy associative array format.
