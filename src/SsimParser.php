@@ -5,8 +5,10 @@ declare(strict_types=1);
 namespace Ezzaze\SsimParser;
 
 use Carbon\Carbon;
+use Ezzaze\SsimParser\Collections\FlightLegCollection;
 use Ezzaze\SsimParser\Contracts\SsimRegexContract;
 use Ezzaze\SsimParser\Contracts\SsimVersionContract;
+use Ezzaze\SsimParser\DTOs\FlightLeg;
 use Ezzaze\SsimParser\Exceptions\EmptyDataSourceException;
 use Ezzaze\SsimParser\Exceptions\FileReadException;
 use Ezzaze\SsimParser\Exceptions\InvalidContractException;
@@ -132,11 +134,31 @@ class SsimParser
     }
 
     /**
-     * Parse the SSIM data and retrieve the results.
-     *
-     * @return array<int, array<string, string>> An array of parsed flight data.
+     * Parse the SSIM data and return a FlightLegCollection.
      */
-    public function parse(): array
+    public function parse(): FlightLegCollection
+    {
+        $arrays = $this->parseRaw();
+
+        return FlightLegCollection::fromArrays($arrays);
+    }
+
+    /**
+     * Parse the SSIM data and return legacy associative arrays.
+     *
+     * @return list<array<string, string>>
+     */
+    public function parseToArray(): array
+    {
+        return $this->parseRaw();
+    }
+
+    /**
+     * Internal parse that returns raw arrays.
+     *
+     * @return list<array<string, string>>
+     */
+    private function parseRaw(): array
     {
         $output = [];
         $versionStr = (string) $this->versionNumber;

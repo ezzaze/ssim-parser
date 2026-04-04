@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Ezzaze\SsimParser\Collections\FlightLegCollection;
+use Ezzaze\SsimParser\DTOs\FlightLeg;
 use Ezzaze\SsimParser\Exceptions\EmptyDataSourceException;
 use Ezzaze\SsimParser\Exceptions\FileReadException;
 use Ezzaze\SsimParser\Exceptions\InvalidContractException;
@@ -43,13 +45,46 @@ $data = "
     00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 ";
 
-it('can extract SSIM v3 data', function () use ($data) {
-    $ssim = (new SsimParser(new Version3()))->load($data);
-    $output = $ssim->parse();
+// ── Parser: FlightLegCollection return ──────────────────────────────────
+
+it('parse() returns a FlightLegCollection', function () use ($data) {
+    $result = (new SsimParser(new Version3()))->load($data)->parse();
+
+    expect($result)->toBeInstanceOf(FlightLegCollection::class);
+    expect($result)->not->toBeEmpty();
+    expect($result->first())->toBeInstanceOf(FlightLeg::class);
+});
+
+it('parse() result contains correct flight data', function () use ($data) {
+    $result = (new SsimParser())->load($data)->parse();
+    $first = $result->first();
+
+    expect($first)->not->toBeNull();
+    expect($first->airlineDesignator)->toBe('ME');
+    expect($first->serviceType)->toBe(\Ezzaze\SsimParser\Enums\ServiceType::ScheduledPassenger);
+    expect($first->aircraftType)->toBe('320');
+    expect($first->aircraftConfiguration)->toBe('Y174');
+    expect($first->departureIata)->toBeIn(['EVN', 'HRG', 'SSH']);
+    expect($first->arrivalIata)->toBeIn(['EVN', 'HRG', 'SSH']);
+});
+
+it('parse() results are sorted by departure UTC datetime', function () use ($data) {
+    $result = (new SsimParser())->load($data)->parse();
+
+    $previous = null;
+    foreach ($result as $flight) {
+        if ($previous !== null) {
+            expect($flight->departureUtcDateTime)->toBeGreaterThanOrEqual($previous->departureUtcDateTime);
+        }
+        $previous = $flight;
+    }
+});
+
+it('parseToArray() returns legacy array format', function () use ($data) {
+    $output = (new SsimParser())->load($data)->parseToArray();
 
     expect($output)->toBeArray();
     expect(count($output))->toBeGreaterThan(0);
-
     expect($output[0])->toHaveKeys([
         'uid',
         'airline_designator',
@@ -66,42 +101,19 @@ it('can extract SSIM v3 data', function () use ($data) {
     ]);
 });
 
-it('parses correct number of flights and values', function () use ($data) {
-    $output = (new SsimParser())->load($data)->parse();
-
-    expect($output)->toBeArray();
-    expect(count($output))->toBeGreaterThan(0);
-
-    // Verify first flight has expected values
-    $first = $output[0];
-    expect($first['airline_designator'])->toBe('ME');
-    expect($first['service_type'])->toBe('J');
-    expect($first['departure_iata'])->toBeIn(['EVN', 'HRG', 'SSH']);
-    expect($first['arrival_iata'])->toBeIn(['EVN', 'HRG', 'SSH']);
-    expect($first['aircraft_type'])->toBe('320');
-    expect($first['aircraft_configuration'])->toBe('Y174');
-});
-
-it('returns results sorted by departure_utc_datetime', function () use ($data) {
-    $output = (new SsimParser())->load($data)->parse();
-
-    for ($i = 1; $i < count($output); $i++) {
-        expect($output[$i]['departure_utc_datetime'])
-            ->toBeGreaterThanOrEqual($output[$i - 1]['departure_utc_datetime']);
-    }
-});
+// ── Parser: error handling ──────────────────────────────────────────────
 
 it('throws invalid version class exception', function () use ($data) {
     $ssim = (new SsimParser())->setVersion('NonExistentVersionClass')->load($data);
     $ssim->parse();
 })->throws(InvalidVersionClassException::class, 'Class NonExistentVersionClass does not exist.');
 
-it('returns empty list on invalid source', function () {
-    $ssim = (new SsimParser())->load("this is not a valid SSIM string");
-    $output = $ssim->parse();
+it('returns empty collection on invalid source', function () {
+    $result = (new SsimParser())->load("this is not a valid SSIM string")->parse();
 
-    expect($output)->toBeArray();
-    expect($output)->toBeEmpty();
+    expect($result)->toBeInstanceOf(FlightLegCollection::class);
+    expect($result)->toBeEmpty();
+    expect($result->first())->toBeNull();
 });
 
 it('throws invalid regex class exception', function () use ($data) {
@@ -121,7 +133,6 @@ it('throws empty data source exception', function () {
 
 it('throws file read exception for unreadable file', function () {
     $ssim = new SsimParser();
-    // Create a temp file then make it unreadable
     $tempFile = tempnam(sys_get_temp_dir(), 'ssim_test_');
     if ($tempFile === false) {
         $this->markTestSkipped('Could not create temp file');
@@ -145,10 +156,10 @@ it('can load from a file path', function () use ($data) {
     file_put_contents($tempFile, $data);
 
     try {
-        $output = (new SsimParser())->load($tempFile)->parse();
-        expect($output)->toBeArray();
-        expect(count($output))->toBeGreaterThan(0);
-        expect($output[0])->toHaveKey('aircraft_type');
+        $result = (new SsimParser())->load($tempFile)->parse();
+        expect($result)->toBeInstanceOf(FlightLegCollection::class);
+        expect($result)->not->toBeEmpty();
+        expect($result->first())->toBeInstanceOf(FlightLeg::class);
     } finally {
         unlink($tempFile);
     }
